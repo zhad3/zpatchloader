@@ -1,0 +1,17 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/zpatchloader
+zpatchloader.so
+zpatchloader.dylib
+zpatchloader.dll
+zpatchloader.a
+zpatchloader.lib
+zpatchloader-test-*
+*.exe
+*.o
+*.obj
+*.lst
+dub.selections.json
+zpatchloader.example.conf

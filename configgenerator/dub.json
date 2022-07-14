@@ -1,0 +1,12 @@
+{
+	"name": "configgenerator",
+	"description": "Generates an example config",
+	"dependencies": {
+		"zconfig": "~>1.1.0"
+	},
+    "targetType": "executable",
+    "targetName": "zpatchloader-configgenerator",
+    "targetPath": "../bin",
+    "sourceFiles": ["../source/config.d"]
+}
+
