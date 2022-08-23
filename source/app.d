@@ -35,7 +35,7 @@ int main(string[] args)
 
 Config getConfig(string[] args, out bool helpWanted)
 {
-    string[] configArgs = getConfigArguments!Config("zpatcher.conf", args);
+    string[] configArgs = getConfigArguments!Config("zpatchloader.conf", args);
 
     if (configArgs.length > 0)
     {
