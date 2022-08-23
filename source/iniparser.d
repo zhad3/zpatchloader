@@ -1,41 +1,32 @@
 module serveriniparser;
 
 import config : PatchServerConfig;
-import patchserver : PatchServer;
+import patchserver : PatchServer, PatchInfo;
 
-PatchServer[] parseServerConfigs(const string filename)
+alias IniEntryCallback = void delegate(immutable(string) section, lazy immutable(string) key, lazy immutable(string) value);
+
+void parseIni(const string filename, IniEntryCallback callback)
 {
     import std.stdio : File;
     import std.exception : ErrnoException;
 
-    PatchServer[] servers;
-
-    File serverFile;
+    File iniFile;
     try
     {
-        serverFile = File(filename, "r");
+        iniFile = File(filename, "r");
     }
     catch (ErrnoException e)
     {
         import std.stdio : writeln;
         writeln(e.message);
-        return [];
+        return;
     }
-
     scope(exit)
-        serverFile.close();
+        iniFile.close();
 
-    bool[string] identifierMap;
-    PatchServerConfig[string] serverConfigMap;
-    PatchServerConfig* currentPatchServerConfig = null;
-    string[] orderedConfigs;
+    string currentSection = "global";
 
-    foreach (memberName; __traits(allMembers, PatchServerConfig))
-    {
-        identifierMap[memberName] = true;
-    }
-
-    foreach (line; serverFile.byLine())
+    foreach (line; iniFile.byLine())
     {
         import std.algorithm : splitter, each, findSplit;
         import std.array : empty;
@@ -47,30 +38,47 @@ PatchServer[] parseServerConfigs(const string filename)
 
         if (line.length > 2 && line[0] == '[' && line[$ - 1] == ']')
         {
-            auto section = line[1 .. $ - 1];
-            if (!(section in serverConfigMap))
-            {
-                serverConfigMap[cast(string) section.dup] = PatchServerConfig.init;
-                orderedConfigs ~= section.dup;
-            }
-            currentPatchServerConfig = &serverConfigMap[section];
-        }
-
-        if (currentPatchServerConfig is null)
-        {
+            currentSection = cast(immutable string) line[1 .. $ - 1].dup;
             continue;
         }
 
         if (auto splitted = line.findSplit("="))
         {
-            if (cast(const string) splitted[0] in identifierMap)
+            callback(currentSection, cast(immutable string) splitted[0].dup, cast(immutable string) splitted[2].dup);
+        }
+        else
+        {
+            callback(currentSection, string.init, cast(immutable string) line.dup);
+        }
+    }
+
+}
+
+
+PatchServer[] parseServerConfigs(const string filename)
+{
+    PatchServer[] servers;
+
+    PatchServerConfig[string] serverConfigMap;
+    PatchServerConfig* currentPatchServerConfig = null;
+    string[] orderedConfigs;
+
+    parseIni(filename, (immutable(string) section, lazy immutable(string) key, lazy immutable(string) value)
             {
-                const key = splitted[0];
-                const value = splitted[2];
+                if (!(section in serverConfigMap))
+                {
+                    serverConfigMap[section] = PatchServerConfig.init;
+                    orderedConfigs ~= section.dup;
+                }
+                currentPatchServerConfig = &serverConfigMap[section];
+                if (currentPatchServerConfig is null)
+                {
+                    return;
+                }
 
                 import std.conv : to;
 
-setter_switch: final switch (key)
+setter_switch: switch (key)
                 {
                 static foreach (memberName; __traits(allMembers, PatchServerConfig))
                 {
@@ -78,10 +86,10 @@ setter_switch: final switch (key)
                         __traits(getMember, currentPatchServerConfig, memberName) = value.to!(typeof(__traits(getMember, currentPatchServerConfig, memberName)));
                         break setter_switch;
                 }
+                    default:
+                        break setter_switch;
                 }
-            }
-        }
-    }
+            });
 
     foreach (section; orderedConfigs)
     {
