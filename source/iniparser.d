@@ -1,7 +1,7 @@
-module serveriniparser;
+module iniparser;
 
-import config : PatchServerConfig;
-import patchserver : PatchServer, PatchInfo;
+import config : PatchServerConfig, LocalPatchInfo, FailedPatch;
+import patchserver : PatchServer;
 
 alias IniEntryCallback = void delegate(immutable(string) section, lazy immutable(string) key, lazy immutable(string) value);
 
@@ -98,5 +98,43 @@ setter_switch: switch (key)
     }
 
     return servers;
+}
+
+LocalPatchInfo parseLocalPatchInfo(const string filename)
+{
+    LocalPatchInfo info;
+    FailedPatch[] failedPatches;
+
+    parseIni(filename, (immutable(string) section, lazy immutable(string) key, lazy immutable(string) value)
+            {
+                import std.conv : to;
+                if (section == "failed-patches" && key != string.init)
+                {
+                    FailedPatch failedPatch;
+                    failedPatch.patchId = key.to!int;
+                    failedPatch.retries = value.to!int;
+                    failedPatches ~= failedPatch;
+                    return;
+                }
+                setter_switch2: switch(key)
+                {
+feach: static foreach (memberName; __traits(allMembers, LocalPatchInfo))
+                    {
+                        static if (memberName != "failedPatches")
+                        {
+                            case memberName:
+                                __traits(getMember, info, memberName) = value.to!(typeof(__traits(getMember, info, memberName)));
+                                break setter_switch2;
+                        }
+                    }
+                    default:
+                        break setter_switch2;
+                }
+            }
+        );
+
+    info.failedPatches = failedPatches;
+
+    return info;
 }
 

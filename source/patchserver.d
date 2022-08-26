@@ -1,24 +1,17 @@
 module patchserver;
 
-import config : PatchServerConfig;
+import config : PatchServerConfig, LocalPatchInfo, getConfig;
 import requests;
-
-struct PatchInfo
-{
-    string etag;
-    string lastModified;
-    int minPatchNumber;
-    int maxPatchNumber;
-}
 
 class PatchServer
 {
-    immutable PatchServerConfig config;
+    immutable PatchServerConfig patchConfig;
     immutable string name;
+    LocalPatchInfo localPatchInfo;
 
-    this(immutable PatchServerConfig config, immutable string patchServerName)
+    this(immutable PatchServerConfig patchConfig, immutable string patchServerName)
     {
-        this.config = config;
+        this.patchConfig = patchConfig;
         this.name = patchServerName;
     }
 
@@ -29,6 +22,13 @@ class PatchServer
 
     void loadLocalPatchInfo()
     {
+        import std.path : buildPath;
+
+        immutable filename = buildPath(getConfig().localPatchInfoDirectory, name) ~ ".conf";
+
+        import iniparser : parseLocalPatchInfo;
+
+        localPatchInfo = parseLocalPatchInfo(filename);
 
     }
 

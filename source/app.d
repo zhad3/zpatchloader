@@ -2,6 +2,7 @@ import zconfig;
 import std.stdio;
 
 import config;
+import iniparser;
 
 enum usage = "zpatchloader - Download patch files of Ragnarok Online";
 
@@ -28,7 +29,9 @@ int main(string[] args)
         return 0;
     }
 
-    // TODO implement logic
+    setConfig(conf);
+
+    auto servers = parseServerConfigs(conf.serverConfigFile);
 
     return 0;
 }

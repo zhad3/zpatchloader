@@ -16,7 +16,7 @@
     "configurations": [
         {
             "name": "unittest",
-            "mainSourceFile": "source/test.d",
+            "mainSourceFile": "test.d",
             "targetType": "executable",
             "targetName": "zpatchloader-test"
         }
