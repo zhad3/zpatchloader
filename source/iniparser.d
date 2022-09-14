@@ -103,7 +103,7 @@ setter_switch: switch (key)
 LocalPatchInfo parseLocalPatchInfo(const string filename)
 {
     LocalPatchInfo info;
-    FailedPatch[] failedPatches;
+    FailedPatch[int] failedPatches;
 
     parseIni(filename, (immutable(string) section, lazy immutable(string) key, lazy immutable(string) value)
             {
@@ -113,7 +113,7 @@ LocalPatchInfo parseLocalPatchInfo(const string filename)
                     FailedPatch failedPatch;
                     failedPatch.patchId = key.to!int;
                     failedPatch.retries = value.to!int;
-                    failedPatches ~= failedPatch;
+                    failedPatches[failedPatch.patchId] = failedPatch;
                     return;
                 }
                 setter_switch2: switch(key)

@@ -11,13 +11,12 @@ unittest
 
     assert(servers[0].name == "server-0");
     assert(servers[0].patchConfig.host == "foobar");
-    assert(servers[0].patchConfig.infoPath == "/info", servers[0].patchConfig.infoPath);
     assert(servers[0].patchConfig.path == "/path");
-    assert(servers[0].patchConfig.infoFile == "patch.txt");
+    assert(servers[0].patchConfig.infoFile == "/info/patch.txt");
 
     assert(servers[1].name == "server-1");
     assert(servers[1].patchConfig.host == "overwrite");
-    assert(servers[1].patchConfig.infoPath == "/original");
+    assert(servers[1].patchConfig.path == "/original");
 
     assert(servers[2].name == "server-2");
 }

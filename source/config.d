@@ -18,8 +18,7 @@ struct PatchServerConfig
 {
     string host = "http://ropatch.gnjoy.com";
     string path = "/Patch";
-    string infoPath = "/PatchInfo";
-    string infoFile = "patch2.txt";
+    string infoFile = "/PatchInfo/patch2.txt";
 }
 
 import std.typecons : Tuple;
@@ -31,7 +30,7 @@ struct LocalPatchInfo
     string lastModified;
     int minPatchNumber;
     int maxPatchNumber;
-    FailedPatch[] failedPatches;
+    FailedPatch[int] failedPatches;
 }
 
 
@@ -44,7 +43,7 @@ immutable(Config) getConfig()
 
 void setConfig(Config conf)
 {
-    if (globalConfig != Config.init)
+    if (globalConfig == Config.init)
     {
         globalConfig = conf;
     }

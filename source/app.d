@@ -3,6 +3,7 @@ import std.stdio;
 
 import config;
 import iniparser;
+import patchserver;
 
 enum usage = "zpatchloader - Download patch files of Ragnarok Online";
 
@@ -31,7 +32,32 @@ int main(string[] args)
 
     setConfig(conf);
 
+    import std.file : exists, mkdirRecurse;
+
+    if (!exists(conf.downloadDirectory))
+    {
+        mkdirRecurse(conf.downloadDirectory);
+    }
+    if (!exists(conf.localPatchInfoDirectory))
+    {
+        mkdirRecurse(conf.localPatchInfoDirectory);
+    }
+    if (!exists(conf.tempDirectory))
+    {
+        mkdirRecurse(conf.tempDirectory);
+    }
+
     auto servers = parseServerConfigs(conf.serverConfigFile);
+
+    foreach (PatchServer server; servers)
+    {
+        server.loadLocalPatchInfo();
+        if (server.checkForNewPatchFiles())
+        {
+            server.downloadPatchFiles();
+            server.saveLocalPatchInfo();
+        }
+    }
 
     return 0;
 }
