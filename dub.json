@@ -1,19 +1,23 @@
 {
-	"authors": [
-		"zhad3"
-	],
-	"copyright": "Copyright © 2022, zhad3",
-	"dependencies": {
-		"zconfig": ">=1.0.0",
+    "authors": [
+        "zhad3"
+        ],
+    "copyright": "Copyright © 2022, zhad3",
+    "dependencies": {
+        "zconfig": ">=1.0.0",
         "requests": ">=2.0.8"
-	},
-	"description": "Tool that downloads patch files of Ragnarok Online",
-	"license": "MIT",
-	"name": "zpatchloader",
+    },
+    "description": "Tool that downloads patch files of Ragnarok Online",
+    "license": "MIT",
+    "name": "zpatchloader",
+    "targetType": "executable",
     "subPackages": [
         "./configgenerator"
     ],
     "configurations": [
+        {
+            "name": "default"
+        },
         {
             "name": "unittest",
             "mainSourceFile": "test.d",
