@@ -27,7 +27,6 @@ class PatchServer
         }
 
         auto req = new Request();
-        req.verbosity = 2;
         if (localPatchInfo.etag != string.init)
         {
             req.addHeaders(["If-None-Match": localPatchInfo.etag]);
@@ -37,11 +36,17 @@ class PatchServer
             req.addHeaders(["If-Modified-Since": localPatchInfo.lastModified]);
         }
 
-        auto res = req.get(patchConfig.host ~ patchConfig.infoFile);
+        auto patchInfoFileUri = patchConfig.host ~ patchConfig.infoFile;
+        import std.stdio : writeln, writefln, writef;
+        writef("[%s] GET %s => ", name, patchInfoFileUri);
+        auto res = req.get(patchInfoFileUri);
+        writeln(res.code);
+
         if ("etag" in res.responseHeaders)
         {
             localPatchInfo.etag = res.responseHeaders["etag"];
         }
+
         if ("last-modified" in res.responseHeaders)
         {
             localPatchInfo.lastModified = res.responseHeaders["last-modified"];
@@ -57,8 +62,6 @@ class PatchServer
             import std.file : readText;
             immutable(string) savedPatchInfoData = readText(savedPatchInfoFilename);
             extractPatchFileEntitiesFromPatchFile(savedPatchInfoData);
-            import std.stdio : writeln;
-            writeln(patchFileEntities.length);
             return patchFileEntities.length > 0;
         }
 
@@ -119,7 +122,7 @@ class PatchServer
         if (localPatchInfo.failedPatches.length > 0)
         {
             app ~= "\n[failed-patches]\n";
-            foreach (immutable(FailedPatch) failedPatch; localPatchInfo.failedPatches)
+            foreach (int key, immutable(FailedPatch) failedPatch; localPatchInfo.failedPatches)
             {
                 app.formattedWrite("%d=%d\n", failedPatch.patchId, failedPatch.retries);
             }
@@ -144,7 +147,7 @@ class PatchServer
             .map!(line => line.stripRight('\r').split(" "))
             .filter!(segments => segments[0].to!int > localPatchInfo.maxPatchNumber)
             .map!(segments => PatchFileEntity(segments[0].to!int, patchConfig.host ~ patchConfig.path ~ seperator ~ segments[1]))
-            .each!((entity) {writeln(format("PatchId: %d, PatchUrl: %s", entity.patchId, entity.uri)); patchFileEntities ~= entity;});
+            .each!(entity => patchFileEntities ~= entity);
     }
 
     void downloadPatchFiles()
@@ -168,35 +171,41 @@ class PatchServer
             mkdirRecurse(savedPath);
         }
 
-        Job[] jobs = patchFileEntities.map!(patchEntity => Job(patchEntity.uri).method("GET").opaque((patchEntity.patchId.to!string ~ "|" ~ baseName(patchEntity.uri)).representation).addHeaders(["User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:103.0) Gecko/20100101 Firefox/103.0"])).array;
+        Job[] jobs = patchFileEntities.map!(patchEntity => Job(patchEntity.uri).method("GET").opaque((patchEntity.patchId.to!string ~ "|" ~ baseName(patchEntity.uri)).representation).addHeaders(["User-Agent": "zpatchloader"])).array;
 
-        //if (false) {
         jobs.pool(3).each!((res) {
-                auto patchEntity = (cast(string)res.opaque).split("|");
+                import std.array : appender;
                 import std.stdio : writeln;
-                writeln(cast(string)res.opaque);
+                import std.format : formattedWrite;
+
+                auto patchEntity = (cast(string)res.opaque).split("|");
                 int patchId = patchEntity[0].to!int;
                 auto patchFilename = patchEntity[1];
+                auto app = appender!string;
+
                 if (res.code != 200 || res.flags != Result.OK)
                 {
+                    import std.format : formattedWrite;
                     if (res.flags != Result.OK)
                     {
-                        import std.stdio : writefln;
-                        writefln("\nDownload -- PatchId: %d, Filename: %s. Exception: %s", patchId, patchFilename, cast(string)res.data);
+                        app.formattedWrite("[%s][PatchId: %d] GET %s. Exception: %s\n", name, patchId, patchFilename, cast(string)res.data);
                     }
                     else
                     {
-                        import std.stdio : writefln;
-                        writefln("\nDownload -- PatchId: %d, Filename: %s. Status: %d. \nBody: %s", patchId, patchFilename, res.code, cast(string)res.data);
+                        app.formattedWrite("[%s][PatchId: %d] GET %s. HTTPStatus: %d. \nBody: %s\n", name, patchId, patchFilename, res.code, cast(string)res.data);
                     }
-                    auto failedPatch = patchId in localPatchInfo.failedPatches;
-                    if (failedPatch !is null)
+
+                    synchronized
                     {
-                        localPatchInfo.failedPatches[patchId].retries += 1;
-                    }
-                    else
-                    {
-                        localPatchInfo.failedPatches[patchId] = FailedPatch(patchId, 0);
+                        auto failedPatch = patchId in localPatchInfo.failedPatches;
+                        if (failedPatch !is null)
+                        {
+                            localPatchInfo.failedPatches[patchId].retries += 1;
+                        }
+                        else
+                        {
+                            localPatchInfo.failedPatches[patchId] = FailedPatch(patchId, 0);
+                        }
                     }
                 }
                 else
@@ -216,10 +225,17 @@ class PatchServer
                         {
                             localPatchInfo.minPatchNumber = patchId;
                         }
+                        if (localPatchInfo.failedPatches.length > 0)
+                        {
+                            // Does nothing if the patchId is not among the failed ones
+                            localPatchInfo.failedPatches.remove(patchId);
+                        }
                     }
+                    app.formattedWrite("[%s][PatchId: %d] GET %s. Success!\n", name, patchId, patchFilename);
                 }
+
+                writeln(app.data);
         });
-        //}
     }
 
 }

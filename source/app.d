@@ -49,13 +49,31 @@ int main(string[] args)
 
     auto servers = parseServerConfigs(conf.serverConfigFile);
 
+    import std.stdio : writeln, writefln;
+
+    writefln("Loaded %d patch server(s) from config \"%s\":", servers.length, conf.serverConfigFile);
     foreach (PatchServer server; servers)
     {
+        writefln("    - %s\n", server.name);
+    }
+
+    foreach (PatchServer server; servers)
+    {
+        writefln("[%s] Loading local patch info:", server.name);
         server.loadLocalPatchInfo();
+        writefln("[%s]    minPatchNumber=%d", server.name, server.localPatchInfo.minPatchNumber);
+        writefln("[%s]    maxPatchNumber=%d", server.name, server.localPatchInfo.maxPatchNumber);
+
+        writefln("[%s] Checking for patches...", server.name);
         if (server.checkForNewPatchFiles())
         {
+            writefln("[%s] Found %d new patch(es)! Starting download...", server.name, server.patchFileEntities.length);
             server.downloadPatchFiles();
             server.saveLocalPatchInfo();
+        }
+        else
+        {
+            writefln("[%s] No new patches to download. Up-to-date.", server.name);
         }
     }
 
