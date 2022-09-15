@@ -3,7 +3,10 @@ module patchserver;
 import config : PatchServerConfig, LocalPatchInfo, FailedPatch, getConfig;
 import requests;
 import std.typecons : Tuple;
-import std.stdio : writeln, writefln, writef;
+import std.stdio : File, writeln, writefln, writef;
+import std.algorithm : stripLeft, stripRight, map, filter, startsWith, endsWith, each;
+import std.path : buildPath, baseName;
+import std.file : exists, mkdirRecurse;
 
 alias PatchFileEntity = Tuple!(int, "patchId", string, "uri");
 
@@ -21,7 +24,6 @@ class PatchServer
         this.patchConfig = patchConfig;
         this.name = patchServerName;
 
-        import std.algorithm : endsWith;
         this.pathSeparator = patchConfig.path.endsWith("/") ? "" : "/";
     }
 
@@ -80,10 +82,6 @@ class PatchServer
             localPatchInfo.lastModified = res.responseHeaders["last-modified"];
         }
 
-        import std.stdio : File;
-        import std.file : exists;
-        import std.path : buildPath;
-
         immutable savedPatchInfoFilename = buildPath(getConfig().localPatchInfoDirectory, name ~ "_patchinfo.txt");
         if (res.code == 304 && exists(savedPatchInfoFilename))
         {
@@ -109,7 +107,6 @@ class PatchServer
 
     void loadLocalPatchInfo()
     {
-        import std.path : buildPath;
 
         immutable filename = buildPath(getConfig().localPatchInfoDirectory, name) ~ ".conf";
 
@@ -121,11 +118,8 @@ class PatchServer
 
     void saveLocalPatchInfo()
     {
-        import std.path : buildPath;
-        import std.stdio : File;
         import std.format : formattedWrite;
         import std.array : appender;
-        import std.file : exists, mkdirRecurse;
 
         immutable filename = buildPath(getConfig().localPatchInfoDirectory, name) ~ ".conf";
 
@@ -163,10 +157,8 @@ class PatchServer
 
     void extractPatchFileEntitiesFromPatchFile(immutable(string) responseData)
     {
-        import std.algorithm : stripLeft, stripRight, map, filter, startsWith, each;
         import std.array : split;
         import std.conv : to;
-        import std.stdio : File;
         import std.format : format;
         import std.regex : splitter, regex;
 
@@ -221,12 +213,9 @@ class PatchServer
             return;
         }
 
-        import std.algorithm : map, each;
-        import std.path : baseName, buildPath;
         import std.string : representation;
         import std.array : array, split;
         import std.conv : to, ConvException;
-        import std.file : exists, mkdirRecurse;
 
         immutable savedPath = buildPath(getConfig().tempDirectory, name);
 
@@ -248,7 +237,6 @@ class PatchServer
 
                 if (res.code != 200 || res.flags != Result.OK)
                 {
-                    import std.format : formattedWrite;
                     if (res.flags != Result.OK)
                     {
                         app.formattedWrite("[%s][PatchId: %d] GET %s. Exception: %s\n", name, patchId, patchFilename, cast(string)res.data);
@@ -273,7 +261,6 @@ class PatchServer
                 }
                 else
                 {
-                    import std.stdio : File;
                     auto savedFile = File(buildPath(savedPath, patchId.to!string ~ "_" ~ patchFilename), "w+");
                     scope(exit)
                         savedFile.close();
