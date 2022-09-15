@@ -45,8 +45,10 @@ class PatchServer
         }
         else
         {
-            writefln("[%s] No new patches to download. Up-to-date.", name);
+            writefln("[%s] No new patches to download.", name);
         }
+
+        moveCompletedPatchFiles();
     }
 
     bool checkForNewPatchFiles()
@@ -286,6 +288,59 @@ class PatchServer
 
                 writeln(app.data);
         });
+    }
+
+    void moveCompletedPatchFiles()
+    {
+        immutable moveToPath = buildPath(getConfig().downloadDirectory, name);
+        immutable moveFromPath = buildPath(getConfig().tempDirectory, name);
+        if (!exists(moveToPath))
+        {
+            mkdirRecurse(moveToPath);
+        }
+        if (!exists(moveFromPath))
+        {
+            mkdirRecurse(moveFromPath);
+        }
+
+        int highestContinuousPatchId = localPatchInfo.maxPatchNumber;
+        foreach (int failedPatchId; localPatchInfo.failedPatches.keys)
+        {
+            immutable(FailedPatch) failedPatch = localPatchInfo.failedPatches[failedPatchId];
+            if (failedPatch.retries < patchConfig.maxRetries && failedPatchId < highestContinuousPatchId)
+            {
+                highestContinuousPatchId = failedPatchId;
+            }
+        }
+
+        import std.file : DirEntry, dirEntries, SpanMode;
+
+        auto entries = dirEntries(moveFromPath, SpanMode.shallow, false);
+
+        writefln("[%s] Moving files from \"%s\" to \"%s\" to mark them as complete.", name, moveFromPath, moveToPath);
+        if (highestContinuousPatchId < localPatchInfo.maxPatchNumber)
+        {
+            writefln("[%s][WARNING] Will only move files with patchId up until %d despite the currently highest downloaded patchId being %d due to missing patches. This is done to keep the integrity of the final data set.", name, highestContinuousPatchId, localPatchInfo.maxPatchNumber);
+        }
+
+        foreach(DirEntry entry; entries)
+        {
+            if (!entry.isFile())
+            {
+                continue;
+            }
+
+            import std.algorithm : findSplit;
+            import std.conv : to;
+            auto splittedName = entry.name.baseName.findSplit("_");
+            if (!splittedName || splittedName[0].to!int > highestContinuousPatchId)
+            {
+                continue;
+            }
+            import std.file : rename;
+            rename(entry.name, buildPath(moveToPath, entry.name.baseName));
+            // TODO: rename can just move files on the same mount point / drive. For it to work across them the files need to be copied and then the original deleted.
+        }
     }
 
     private string buildDownloadUri(immutable(string) filename)
