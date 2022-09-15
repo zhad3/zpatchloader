@@ -19,10 +19,11 @@ struct PatchServerConfig
     string host = "http://ropatch.gnjoy.com";
     string path = "/Patch";
     string infoFile = "/PatchInfo/patch2.txt";
+    int downloadPoolSize = 6;
 }
 
 import std.typecons : Tuple;
-alias FailedPatch = Tuple!(int, "patchId", int, "retries");
+alias FailedPatch = Tuple!(int, "patchId", string, "filename", int, "retries");
 
 struct LocalPatchInfo
 {

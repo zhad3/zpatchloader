@@ -124,7 +124,7 @@ class PatchServer
             app ~= "\n[failed-patches]\n";
             foreach (int key, immutable(FailedPatch) failedPatch; localPatchInfo.failedPatches)
             {
-                app.formattedWrite("%d=%d\n", failedPatch.patchId, failedPatch.retries);
+                app.formattedWrite("%d=%s|%d\n", failedPatch.patchId, failedPatch.filename, failedPatch.retries);
             }
         }
         file.write(app.data);
@@ -173,7 +173,7 @@ class PatchServer
 
         Job[] jobs = patchFileEntities.map!(patchEntity => Job(patchEntity.uri).method("GET").opaque((patchEntity.patchId.to!string ~ "|" ~ baseName(patchEntity.uri)).representation).addHeaders(["User-Agent": "zpatchloader"])).array;
 
-        jobs.pool(3).each!((res) {
+        jobs.pool(patchConfig.downloadPoolSize).each!((res) {
                 import std.array : appender;
                 import std.stdio : writeln;
                 import std.format : formattedWrite;
@@ -204,7 +204,7 @@ class PatchServer
                         }
                         else
                         {
-                            localPatchInfo.failedPatches[patchId] = FailedPatch(patchId, 0);
+                            localPatchInfo.failedPatches[patchId] = FailedPatch(patchId, patchFilename, 0);
                         }
                     }
                 }

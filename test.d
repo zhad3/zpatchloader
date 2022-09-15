@@ -31,9 +31,11 @@ unittest
     assert(patchInfo.lastModified == string.init);
     assert(patchInfo.failedPatches.length == 2);
 
-    assert(patchInfo.failedPatches[0].patchId == 124);
-    assert(patchInfo.failedPatches[0].retries == 0);
-    assert(patchInfo.failedPatches[1].patchId == 555);
-    assert(patchInfo.failedPatches[1].retries == 2);
+    assert(patchInfo.failedPatches[124].patchId == 124);
+    assert(patchInfo.failedPatches[124].retries == 0);
+    assert(patchInfo.failedPatches[124].filename == "filename");
+    assert(patchInfo.failedPatches[555].patchId == 555);
+    assert(patchInfo.failedPatches[555].retries == 2);
+    assert(patchInfo.failedPatches[555].filename == "name");
 }
 

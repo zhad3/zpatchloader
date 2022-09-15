@@ -108,11 +108,14 @@ LocalPatchInfo parseLocalPatchInfo(const string filename)
     parseIni(filename, (immutable(string) section, lazy immutable(string) key, lazy immutable(string) value)
             {
                 import std.conv : to;
+                import std.array : split;
                 if (section == "failed-patches" && key != string.init)
                 {
                     FailedPatch failedPatch;
                     failedPatch.patchId = key.to!int;
-                    failedPatch.retries = value.to!int;
+                    auto segments = value.split("|");
+                    failedPatch.filename = segments[0].to!string;
+                    failedPatch.retries = segments[1].to!int;
                     failedPatches[failedPatch.patchId] = failedPatch;
                     return;
                 }
