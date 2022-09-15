@@ -64,10 +64,12 @@ int main(string[] args)
         writefln("[%s]    minPatchNumber=%d", server.name, server.localPatchInfo.minPatchNumber);
         writefln("[%s]    maxPatchNumber=%d", server.name, server.localPatchInfo.maxPatchNumber);
 
+        server.addFailedPatchesToDownloadList();
+
         writefln("[%s] Checking for patches...", server.name);
-        if (server.checkForNewPatchFiles())
+        if (server.patchFileEntities.length > 0)
         {
-            writefln("[%s] Found %d new patch(es)! Starting download...", server.name, server.patchFileEntities.length);
+            writefln("[%s] Found %d new patch(es) and %d previously failed patch(es)! Starting download...", server.name, server.patchFileEntities.length - server.localPatchInfo.failedPatches.length, server.localPatchInfo.failedPatches.length);
             server.downloadPatchFiles();
             server.saveLocalPatchInfo();
         }

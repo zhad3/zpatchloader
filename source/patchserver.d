@@ -13,10 +13,15 @@ class PatchServer
     LocalPatchInfo localPatchInfo;
     PatchFileEntity[] patchFileEntities;
 
+    private immutable(string) pathSeparator;
+
     this(immutable PatchServerConfig patchConfig, immutable string patchServerName)
     {
         this.patchConfig = patchConfig;
         this.name = patchServerName;
+
+        import std.algorithm : endsWith;
+        this.pathSeparator = patchConfig.path.endsWith("/") ? "" : "/";
     }
 
     bool checkForNewPatchFiles()
@@ -27,6 +32,7 @@ class PatchServer
         }
 
         auto req = new Request();
+        req.addHeaders(["User-Agent": "zpatchloader"]);
         if (localPatchInfo.etag != string.init)
         {
             req.addHeaders(["If-None-Match": localPatchInfo.etag]);
@@ -121,9 +127,12 @@ class PatchServer
 
         if (localPatchInfo.failedPatches.length > 0)
         {
+            import std.algorithm : sort;
+
             app ~= "\n[failed-patches]\n";
-            foreach (int key, immutable(FailedPatch) failedPatch; localPatchInfo.failedPatches)
+            foreach (int failedPatchId; sort(localPatchInfo.failedPatches.keys))
             {
+                immutable(FailedPatch) failedPatch = localPatchInfo.failedPatches[failedPatchId];
                 app.formattedWrite("%d=%s|%d\n", failedPatch.patchId, failedPatch.filename, failedPatch.retries);
             }
         }
@@ -132,22 +141,56 @@ class PatchServer
 
     void extractPatchFileEntitiesFromPatchFile(immutable(string) responseData)
     {
-        import std.algorithm : stripLeft, stripRight, map, filter, startsWith, endsWith, each;
+        import std.algorithm : stripLeft, stripRight, map, filter, startsWith, each;
         import std.array : split;
         import std.conv : to;
         import std.stdio : File, writeln;
         import std.format : format;
         import std.regex : splitter, regex;
 
-        immutable(string) seperator = patchConfig.path.endsWith("/") ? "" : "/";
-
         responseData.splitter(regex("\n\r?"))
             .map!(line => line.stripLeft!(c => c == ' ' || c == '\t')())
             .filter!(line => line != string.init && !line.startsWith("//"))
             .map!(line => line.stripRight('\r').split(" "))
-            .filter!(segments => segments[0].to!int > localPatchInfo.maxPatchNumber)
-            .map!(segments => PatchFileEntity(segments[0].to!int, patchConfig.host ~ patchConfig.path ~ seperator ~ segments[1]))
+            .filter!((segments) {
+                    int patchId = segments[0].to!int;
+                    return patchId > localPatchInfo.maxPatchNumber && ((patchId in localPatchInfo.failedPatches) is null); // Failed patches are added in "checkForNewPatches()"
+                })
+            .map!(segments => PatchFileEntity(segments[0].to!int, buildDownloadUri(segments[1])))
             .each!(entity => patchFileEntities ~= entity);
+    }
+
+    void addFailedPatchesToDownloadList()
+    {
+        if (localPatchInfo.failedPatches.length == 0)
+        {
+            return;
+        }
+
+        import std.stdio : writefln;
+        import std.algorithm : sort;
+
+        writefln("[%s] Adding %d previously failed patch(es):", name, localPatchInfo.failedPatches.length);
+        int retriesExhausted = 0;
+
+        foreach (int failedPatchId; sort(localPatchInfo.failedPatches.keys))
+        {
+            immutable failedPatch = localPatchInfo.failedPatches[failedPatchId];
+            if (failedPatch.retries < patchConfig.maxRetries)
+            {
+                patchFileEntities ~= PatchFileEntity(failedPatch.patchId, buildDownloadUri(failedPatch.filename));
+                writefln("[%s]   PatchId: %d, Filename: %s, Retries: %d.", name, failedPatch.patchId, failedPatch.filename, failedPatch.retries);
+            }
+            else
+            {
+                retriesExhausted++;
+                writefln("[%s]   PatchId: %d, Filename: %s, Retries exhausted. Won't try again.", name, failedPatch.patchId, failedPatch.filename);
+            }
+        }
+        if (retriesExhausted > 0)
+        {
+            writefln("[%s] Out of %d failed patch(es) %d have failed too often and won't be attempted to download again.", name, localPatchInfo.failedPatches.length, retriesExhausted);
+        }
     }
 
     void downloadPatchFiles()
@@ -236,6 +279,11 @@ class PatchServer
 
                 writeln(app.data);
         });
+    }
+
+    private string buildDownloadUri(immutable(string) filename)
+    {
+        return patchConfig.host ~ patchConfig.path ~ pathSeparator ~ filename;
     }
 
 }

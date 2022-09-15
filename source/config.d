@@ -20,6 +20,7 @@ struct PatchServerConfig
     string path = "/Patch";
     string infoFile = "/PatchInfo/patch2.txt";
     int downloadPoolSize = 6;
+    int maxRetries = 2;
 }
 
 import std.typecons : Tuple;
