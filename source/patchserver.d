@@ -3,6 +3,7 @@ module patchserver;
 import config : PatchServerConfig, LocalPatchInfo, FailedPatch, getConfig;
 import requests;
 import std.typecons : Tuple;
+import std.stdio : writeln, writefln, writef;
 
 alias PatchFileEntity = Tuple!(int, "patchId", string, "uri");
 
@@ -24,6 +25,28 @@ class PatchServer
         this.pathSeparator = patchConfig.path.endsWith("/") ? "" : "/";
     }
 
+    void update()
+    {
+        writefln("[%s] Loading local patch info:", name);
+        loadLocalPatchInfo();
+        writefln("[%s]    minPatchNumber=%d", name, localPatchInfo.minPatchNumber);
+        writefln("[%s]    maxPatchNumber=%d", name, localPatchInfo.maxPatchNumber);
+
+        addFailedPatchesToDownloadList();
+
+        writefln("[%s] Checking for patches...", name);
+        if (patchFileEntities.length > 0)
+        {
+            writefln("[%s] Found %d new patch(es) and %d previously failed patch(es)! Starting download...", name, patchFileEntities.length - localPatchInfo.failedPatches.length, localPatchInfo.failedPatches.length);
+            downloadPatchFiles();
+            saveLocalPatchInfo();
+        }
+        else
+        {
+            writefln("[%s] No new patches to download. Up-to-date.", name);
+        }
+    }
+
     bool checkForNewPatchFiles()
     {
         if (patchConfig.host == string.init || patchConfig.infoFile == string.init)
@@ -43,7 +66,6 @@ class PatchServer
         }
 
         auto patchInfoFileUri = patchConfig.host ~ patchConfig.infoFile;
-        import std.stdio : writeln, writefln, writef;
         writef("[%s] GET %s => ", name, patchInfoFileUri);
         auto res = req.get(patchInfoFileUri);
         writeln(res.code);
@@ -144,7 +166,7 @@ class PatchServer
         import std.algorithm : stripLeft, stripRight, map, filter, startsWith, each;
         import std.array : split;
         import std.conv : to;
-        import std.stdio : File, writeln;
+        import std.stdio : File;
         import std.format : format;
         import std.regex : splitter, regex;
 
@@ -154,7 +176,7 @@ class PatchServer
             .map!(line => line.stripRight('\r').split(" "))
             .filter!((segments) {
                     int patchId = segments[0].to!int;
-                    return patchId > localPatchInfo.maxPatchNumber && ((patchId in localPatchInfo.failedPatches) is null); // Failed patches are added in "checkForNewPatches()"
+                    return patchId > localPatchInfo.maxPatchNumber && ((patchId in localPatchInfo.failedPatches) is null); // Failed patches are added in "addFailedPatchesToDownloadList()"
                 })
             .map!(segments => PatchFileEntity(segments[0].to!int, buildDownloadUri(segments[1])))
             .each!(entity => patchFileEntities ~= entity);
@@ -167,7 +189,6 @@ class PatchServer
             return;
         }
 
-        import std.stdio : writefln;
         import std.algorithm : sort;
 
         writefln("[%s] Adding %d previously failed patch(es):", name, localPatchInfo.failedPatches.length);
@@ -218,7 +239,6 @@ class PatchServer
 
         jobs.pool(patchConfig.downloadPoolSize).each!((res) {
                 import std.array : appender;
-                import std.stdio : writeln;
                 import std.format : formattedWrite;
 
                 auto patchEntity = (cast(string)res.opaque).split("|");
