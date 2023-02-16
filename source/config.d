@@ -4,6 +4,8 @@ import zconfig;
 
 struct Config
 {
+    @Desc("Config file") @ConfigFile
+    string configFile;
     @Desc("Server config file")
     string serverConfigFile = "servers.conf";
     @Desc("Where to place fully downloaded patch files")
