@@ -37,7 +37,7 @@ class PatchServer
         addFailedPatchesToDownloadList();
 
         writefln("[%s] Checking for patches...", name);
-        if (patchFileEntities.length > 0)
+        if (checkForNewPatchFiles())
         {
             writefln("[%s] Found %d new patch(es) and %d previously failed patch(es)! Starting download...", name, patchFileEntities.length - localPatchInfo.failedPatches.length, localPatchInfo.failedPatches.length);
             downloadPatchFiles();
